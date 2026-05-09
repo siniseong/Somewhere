@@ -96,7 +96,6 @@ export function LocationSearch({
     inputRef.current?.focus();
   }
 
-  // 살짝 더 또렷한 글래스: 투명감은 유지, 콘트라스트와 그림자만 한 단계 위로
   const glass =
     "bg-white/[0.14] ring-1 ring-white/[0.14] backdrop-blur-2xl backdrop-saturate-[180%] shadow-[0_14px_44px_rgba(0,0,0,0.5),0_2px_6px_rgba(0,0,0,0.25)]";
 

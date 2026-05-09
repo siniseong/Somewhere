@@ -12,7 +12,19 @@ export type Memory = {
   address?: string;
   colorId: string;
   note: string;
-  photo?: string;
+  /** ID into the photos store (IndexedDB). Photo blobs live separately to keep the memory record small. */
+  photoId?: string;
+  /** Public URL of the photo when stored remotely (e.g. Supabase Storage). */
+  photoUrl?: string;
+  /** Tiny inline base64 preview for instant rendering on the map marker. */
+  photoThumb?: string;
   music?: Music;
+  createdAt: number;
+};
+
+export type PhotoRecord = {
+  id: string;
+  blob: Blob;
+  mime: string;
   createdAt: number;
 };

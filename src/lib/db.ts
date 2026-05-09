@@ -1,11 +1,16 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
-import type { Memory } from "./types";
+import { getSupabaseClient, PHOTO_BUCKET } from "./supabase";
+import type { Memory, PhotoRecord } from "./types";
 
 interface SomewhereDB extends DBSchema {
   memories: {
     key: string;
     value: Memory;
     indexes: { "by-createdAt": number };
+  };
+  photos: {
+    key: string;
+    value: PhotoRecord;
   };
 }
 
@@ -16,33 +21,164 @@ function getDB() {
     throw new Error("IndexedDB is only available in the browser.");
   }
   if (!dbPromise) {
-    dbPromise = openDB<SomewhereDB>("somewhere", 1, {
-      upgrade(db) {
-        const store = db.createObjectStore("memories", { keyPath: "id" });
-        store.createIndex("by-createdAt", "createdAt");
+    dbPromise = openDB<SomewhereDB>("somewhere", 2, {
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const store = db.createObjectStore("memories", { keyPath: "id" });
+          store.createIndex("by-createdAt", "createdAt");
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore("photos", { keyPath: "id" });
+        }
       },
     });
   }
   return dbPromise;
 }
 
+type MemoryRow = {
+  id: string;
+  lat: number;
+  lng: number;
+  place_name: string | null;
+  address: string | null;
+  color_id: string;
+  note: string;
+  photo_url: string | null;
+  photo_thumb: string | null;
+  music_artist: string | null;
+  music_title: string | null;
+  created_at: string;
+};
+
+function rowToMemory(row: MemoryRow): Memory {
+  const music =
+    row.music_artist || row.music_title
+      ? { artist: row.music_artist ?? "", title: row.music_title ?? "" }
+      : undefined;
+  return {
+    id: row.id,
+    lat: row.lat,
+    lng: row.lng,
+    placeName: row.place_name ?? undefined,
+    address: row.address ?? undefined,
+    colorId: row.color_id,
+    note: row.note,
+    photoUrl: row.photo_url ?? undefined,
+    photoThumb: row.photo_thumb ?? undefined,
+    music,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
+function memoryToRow(memory: Memory): MemoryRow {
+  return {
+    id: memory.id,
+    lat: memory.lat,
+    lng: memory.lng,
+    place_name: memory.placeName ?? null,
+    address: memory.address ?? null,
+    color_id: memory.colorId,
+    note: memory.note,
+    photo_url: memory.photoUrl ?? null,
+    photo_thumb: memory.photoThumb ?? null,
+    music_artist: memory.music?.artist ?? null,
+    music_title: memory.music?.title ?? null,
+    created_at: new Date(memory.createdAt).toISOString(),
+  };
+}
+
 export async function getAllMemories(): Promise<Memory[]> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("memories")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) {
+      console.warn("Supabase select failed — falling back to IDB", error);
+    } else {
+      return (data as MemoryRow[]).map(rowToMemory);
+    }
+  }
   const db = await getDB();
   const items = await db.getAllFromIndex("memories", "by-createdAt");
   return items.reverse();
 }
 
 export async function saveMemory(memory: Memory): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { error } = await supabase
+      .from("memories")
+      .upsert(memoryToRow(memory));
+    if (!error) return;
+    console.warn("Supabase insert failed — falling back to IDB", error);
+  }
   const db = await getDB();
   await db.put("memories", memory);
 }
 
 export async function deleteMemory(id: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  let memory: Memory | undefined;
+
+  if (supabase) {
+    const { data } = await supabase
+      .from("memories")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (data) memory = rowToMemory(data as MemoryRow);
+    const { error } = await supabase.from("memories").delete().eq("id", id);
+    if (error) console.warn("Supabase delete failed", error);
+  }
+
   const db = await getDB();
+  if (!memory) memory = await db.get("memories", id);
   await db.delete("memories", id);
+
+  if (memory?.photoId) {
+    await db.delete("photos", memory.photoId);
+  }
+  if (memory?.photoUrl && supabase) {
+    const objectName = parseSupabaseObjectName(memory.photoUrl);
+    if (objectName) {
+      supabase.storage
+        .from(PHOTO_BUCKET)
+        .remove([objectName])
+        .catch((err) =>
+          console.warn("Supabase storage delete failed (ignored)", err),
+        );
+    }
+  }
+}
+
+function parseSupabaseObjectName(url: string): string | null {
+  const match = url.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 export async function getMemory(id: string): Promise<Memory | undefined> {
+  const supabase = getSupabaseClient();
+  if (supabase) {
+    const { data, error } = await supabase
+      .from("memories")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (!error && data) return rowToMemory(data as MemoryRow);
+  }
   const db = await getDB();
   return db.get("memories", id);
+}
+
+export async function savePhoto(record: PhotoRecord): Promise<void> {
+  const db = await getDB();
+  await db.put("photos", record);
+}
+
+export async function getPhoto(id: string): Promise<PhotoRecord | undefined> {
+  const db = await getDB();
+  return db.get("photos", id);
 }

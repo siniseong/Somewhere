@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/sw-register";
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -62,12 +63,14 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} h-full bg-[#f3f4f6] antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} dark h-full bg-[#f3f4f6] antialiased`}
     >
       <body className="min-h-dvh bg-[#f3f4f6] text-zinc-100">
-        <div className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col bg-[var(--background)]">
-          {children}
-        </div>
+        <Providers>
+          <div className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col bg-[var(--background)]">
+            {children}
+          </div>
+        </Providers>
         <ServiceWorkerRegister />
       </body>
     </html>
