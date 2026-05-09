@@ -42,7 +42,7 @@ type MemoryRow = {
   lng: number;
   place_name: string | null;
   address: string | null;
-  color_id: string;
+  color: string;
   note: string;
   photo_url: string | null;
   photo_thumb: string | null;
@@ -62,7 +62,7 @@ function rowToMemory(row: MemoryRow): Memory {
     lng: row.lng,
     placeName: row.place_name ?? undefined,
     address: row.address ?? undefined,
-    colorId: row.color_id,
+    color: row.color,
     note: row.note,
     photoUrl: row.photo_url ?? undefined,
     photoThumb: row.photo_thumb ?? undefined,
@@ -78,7 +78,7 @@ function memoryToRow(memory: Memory): MemoryRow {
     lng: memory.lng,
     place_name: memory.placeName ?? null,
     address: memory.address ?? null,
-    color_id: memory.colorId,
+    color: memory.color,
     note: memory.note,
     photo_url: memory.photoUrl ?? null,
     photo_thumb: memory.photoThumb ?? null,

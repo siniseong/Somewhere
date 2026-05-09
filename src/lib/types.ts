@@ -10,7 +10,7 @@ export type Memory = {
   placeName?: string;
   /** Detail line under the place name — usually a road address */
   address?: string;
-  colorId: string;
+  color: string;
   note: string;
   /** ID into the photos store (IndexedDB). Photo blobs live separately to keep the memory record small. */
   photoId?: string;

@@ -126,7 +126,7 @@ export function LocationSearch({
             onFocus={() => setFocused(true)}
             onBlur={() => window.setTimeout(() => setFocused(false), 150)}
             placeholder={placeholder}
-            className="flex-1 bg-transparent text-[15px] tracking-tight text-white outline-none placeholder:text-white/65"
+            className="flex-1 bg-transparent text-[16px] tracking-tight text-white outline-none placeholder:text-white/65"
           />
           {query && (
             <button

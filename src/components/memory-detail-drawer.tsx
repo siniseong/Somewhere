@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { deleteMemory, getPhoto } from "@/lib/db";
-import { getColor } from "@/lib/colors";
 import type { Memory } from "@/lib/types";
 import { blobToObjectUrl } from "@/lib/photo";
 
@@ -72,7 +71,6 @@ export function MemoryDetailDrawer({
   }
 
   if (!memory) return null;
-  const color = getColor(memory.colorId);
 
   async function handleDelete() {
     if (!memory) return;
@@ -93,14 +91,11 @@ export function MemoryDetailDrawer({
             <span
               className="h-3 w-3 rounded-full"
               style={{
-                backgroundColor: color.hex,
-                boxShadow: `0 0 0 4px ${color.hex}24`,
+                backgroundColor: memory.color,
+                boxShadow: `0 0 0 4px ${memory.color}24`,
               }}
               aria-hidden
             />
-            <span className="text-[12px] uppercase tracking-[0.08em] text-white/55">
-              {color.label}
-            </span>
             <span className="ml-auto text-[12px] text-white/40">
               {formatDate(memory.createdAt)}
             </span>

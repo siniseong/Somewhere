@@ -2,15 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Map, {
-  GeolocateControl,
   Marker,
   type MapMouseEvent,
   type MapRef,
 } from "react-map-gl/mapbox";
-import type { GeolocateControl as MapboxGeolocateControl } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { getAllMemories } from "@/lib/db";
-import { getColor } from "@/lib/colors";
 import { reverseGeocode } from "@/lib/geocode";
 import type { Memory } from "@/lib/types";
 import { LocationSearch, type LocationSuggestion } from "./location-search";
@@ -33,7 +30,6 @@ type DraftPin = {
 export function MapView() {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const mapRef = useRef<MapRef | null>(null);
-  const geolocateRef = useRef<MapboxGeolocateControl | null>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
   const [proximity, setProximity] = useState<{
     lng: number;
@@ -137,10 +133,23 @@ export function MapView() {
         initialViewState={FALLBACK_VIEW}
         mapStyle="mapbox://styles/mapbox/dark-v11"
         doubleClickZoom={false}
+        attributionControl={false}
         onLoad={(e) => {
-          geolocateRef.current?.trigger();
           const c = e.target.getCenter();
           setProximity({ lng: c.lng, lat: c.lat });
+          if (typeof navigator !== "undefined" && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                mapRef.current?.getMap().flyTo({
+                  center: [pos.coords.longitude, pos.coords.latitude],
+                  zoom: 15,
+                  duration: 1000,
+                });
+              },
+              () => {},
+              { enableHighAccuracy: true, timeout: 8000 },
+            );
+          }
         }}
         onMoveEnd={(e) => {
           const c = e.target.getCenter();
@@ -149,61 +158,49 @@ export function MapView() {
         onDblClick={handleDoubleClick}
         style={{ width: "100%", height: "100%" }}
       >
-        <GeolocateControl
-          ref={geolocateRef}
-          position="bottom-left"
-          positionOptions={{ enableHighAccuracy: true, timeout: 8000 }}
-          trackUserLocation
-          showUserHeading
-          fitBoundsOptions={{ maxZoom: 17 }}
-        />
-
-        {memories.map((m) => {
-          const color = getColor(m.colorId);
-          return (
-            <Marker
-              key={m.id}
-              longitude={m.lng}
-              latitude={m.lat}
-              anchor="center"
-              onClick={(e) => {
-                e.originalEvent.stopPropagation();
-                handleMarkerClick(m);
-              }}
+        {memories.map((m) => (
+          <Marker
+            key={m.id}
+            longitude={m.lng}
+            latitude={m.lat}
+            anchor="center"
+            onClick={(e) => {
+              e.originalEvent.stopPropagation();
+              handleMarkerClick(m);
+            }}
+          >
+            <button
+              type="button"
+              aria-label="기록 보기"
+              className="group relative flex items-center justify-center"
             >
-              <button
-                type="button"
-                aria-label={`${color.label} 기록 보기`}
-                className="group relative flex items-center justify-center"
-              >
-                {m.photoThumb ? (
-                  <span
-                    className="relative h-12 w-12 overflow-hidden rounded-full transition group-hover:scale-105"
-                    style={{
-                      boxShadow: `inset 0 0 0 2.5px ${color.hex}, 0 6px 16px rgba(0,0,0,0.5)`,
-                    }}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={m.photoThumb}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  </span>
-                ) : (
-                  <span
-                    className="relative h-7 w-7 rounded-full transition group-hover:scale-110"
-                    style={{
-                      backgroundColor: color.hex,
-                      boxShadow: `0 0 0 1.5px rgba(10,10,10,0.55), 0 4px 10px rgba(0,0,0,0.5)`,
-                    }}
-                    aria-hidden
+              {m.photoThumb ? (
+                <span
+                  className="relative h-12 w-12 overflow-hidden rounded-full transition group-hover:scale-105"
+                  style={{
+                    boxShadow: `inset 0 0 0 2.5px ${m.color}, 0 6px 16px rgba(0,0,0,0.5)`,
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={m.photoThumb}
+                    alt=""
+                    className="h-full w-full object-cover"
                   />
-                )}
-              </button>
-            </Marker>
-          );
-        })}
+                </span>
+              ) : (
+                <span
+                  className="relative h-7 w-7 rounded-full transition group-hover:scale-110"
+                  style={{
+                    backgroundColor: m.color,
+                    boxShadow: `0 0 0 1.5px rgba(10,10,10,0.55), 0 4px 10px rgba(0,0,0,0.5)`,
+                  }}
+                  aria-hidden
+                />
+              )}
+            </button>
+          </Marker>
+        ))}
 
         {draft && (
           <Marker

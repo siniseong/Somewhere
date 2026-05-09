@@ -6,11 +6,10 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   value: string;
-  onChange: (id: string) => void;
+  onChange: (color: string) => void;
 };
 
 export function ColorStep({ value, onChange }: Props) {
-  const current = COLORS.find((c) => c.id === value) ?? COLORS[0];
   return (
     <div className="flex flex-1 flex-col">
       <p className="text-[14px] leading-relaxed text-white/55">
@@ -19,33 +18,29 @@ export function ColorStep({ value, onChange }: Props) {
 
       <div className="mt-8 flex flex-1 items-center justify-center">
         <div
-          className="relative flex h-[180px] w-[180px] items-center justify-center rounded-full transition"
+          className="relative h-[180px] w-[180px] rounded-full transition"
           style={{
-            backgroundColor: current.hex,
-            boxShadow: `0 12px 60px ${current.hex}55, inset 0 0 0 1px rgba(255,255,255,0.18)`,
+            backgroundColor: value,
+            boxShadow: `0 12px 60px ${value}55, inset 0 0 0 1px rgba(255,255,255,0.18)`,
           }}
-        >
-          <span className="text-[15px] font-medium tracking-tight text-zinc-900/75">
-            {current.label}
-          </span>
-        </div>
+        />
       </div>
 
       <div className="grid grid-cols-6 gap-3 pt-6">
         {COLORS.map((c) => {
-          const selected = c.id === value;
+          const selected = c === value;
           return (
             <button
-              key={c.id}
+              key={c}
               type="button"
-              aria-label={c.label}
+              aria-label={`색 ${c}`}
               aria-pressed={selected}
-              onClick={() => onChange(c.id)}
+              onClick={() => onChange(c)}
               className={cn(
                 "relative aspect-square rounded-2xl transition active:scale-95",
                 selected ? "ring-2 ring-white" : "ring-1 ring-white/15",
               )}
-              style={{ backgroundColor: c.hex }}
+              style={{ backgroundColor: c }}
             >
               {selected && (
                 <Check className="absolute inset-0 m-auto h-4 w-4 text-zinc-900" />

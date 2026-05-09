@@ -1,7 +1,6 @@
 "use client";
 
 import { MapPin } from "lucide-react";
-import { COLORS } from "@/lib/colors";
 import type { Draft } from "../record-flow";
 
 type Props = {
@@ -11,8 +10,6 @@ type Props = {
 };
 
 export function ConfirmStep({ draft, placeName, address }: Props) {
-  const color = COLORS.find((c) => c.id === draft.colorId) ?? COLORS[0];
-
   return (
     <div className="flex flex-1 flex-col gap-5">
       <p className="text-[14px] leading-relaxed text-white/55">
@@ -32,19 +29,14 @@ export function ConfirmStep({ draft, placeName, address }: Props) {
         )}
 
         <div className="flex flex-col gap-4 p-5">
-          <div className="flex items-center gap-2.5">
-            <span
-              className="h-3 w-3 rounded-full"
-              style={{
-                backgroundColor: color.hex,
-                boxShadow: `0 0 0 4px ${color.hex}28`,
-              }}
-              aria-hidden
-            />
-            <span className="text-[12px] uppercase tracking-[0.08em] text-white/55">
-              {color.label}
-            </span>
-          </div>
+          <span
+            className="h-3 w-3 rounded-full"
+            style={{
+              backgroundColor: draft.color,
+              boxShadow: `0 0 0 4px ${draft.color}28`,
+            }}
+            aria-hidden
+          />
 
           <div className="text-[20px] font-medium leading-snug tracking-tight text-white">
             {draft.note.trim() || (

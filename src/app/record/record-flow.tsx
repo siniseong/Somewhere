@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ChevronLeft, MapPin } from "lucide-react";
 import { COLORS } from "@/lib/colors";
 import { saveMemory } from "@/lib/db";
 import { processAndStorePhoto } from "@/lib/photo";
@@ -19,7 +19,7 @@ type StepId = "color" | "note" | "photo" | "confirm";
 const STEPS: StepId[] = ["color", "note", "photo", "confirm"];
 
 export type Draft = {
-  colorId: string;
+  color: string;
   note: string;
   photoFile: Blob | null;
   photoPreview: string | null;
@@ -42,7 +42,7 @@ export function RecordFlow() {
   const [direction, setDirection] = useState<1 | -1>(1);
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState<Draft>({
-    colorId: COLORS[0].id,
+    color: COLORS[0],
     note: "",
     photoFile: null,
     photoPreview: null,
@@ -62,7 +62,7 @@ export function RecordFlow() {
   const canAdvance = useMemo(() => {
     switch (currentStep) {
       case "color":
-        return Boolean(draft.colorId);
+        return Boolean(draft.color);
       case "note":
         return draft.note.trim().length > 0;
       case "photo":
@@ -120,7 +120,7 @@ export function RecordFlow() {
         lng,
         placeName,
         address,
-        colorId: draft.colorId,
+        color: draft.color,
         note: draft.note.trim(),
         photoId,
         photoUrl,
@@ -153,27 +153,16 @@ export function RecordFlow() {
   return (
     <div className="flex h-dvh flex-col">
       <header className="flex flex-col gap-3 px-5 pt-[max(env(safe-area-inset-top,0px),16px)]">
-        <div className="flex items-center justify-between">
+        <div className="flex h-10 items-center justify-between">
           <button
             type="button"
             onClick={goBack}
             aria-label="뒤로"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/[0.06] ring-1 ring-white/10 active:scale-95"
+            className="-ml-2 flex h-10 w-10 items-center justify-center active:scale-95"
           >
-            <ArrowLeft className="h-4 w-4 text-white" />
+            <ChevronLeft className="h-7 w-7 text-white" strokeWidth={2.5} />
           </button>
-          <div className="flex items-center gap-1">
-            {STEPS.map((s, i) => (
-              <span
-                key={s}
-                className={
-                  i <= stepIndex
-                    ? "h-1 w-6 rounded-full bg-white transition"
-                    : "h-1 w-6 rounded-full bg-white/15 transition"
-                }
-              />
-            ))}
-          </div>
+          <span className="text-[15px] font-medium text-white">기록</span>
           <div className="w-10" />
         </div>
 
@@ -202,8 +191,8 @@ export function RecordFlow() {
           >
             {currentStep === "color" && (
               <ColorStep
-                value={draft.colorId}
-                onChange={(id) => setDraft((d) => ({ ...d, colorId: id }))}
+                value={draft.color}
+                onChange={(color) => setDraft((d) => ({ ...d, color }))}
               />
             )}
             {currentStep === "note" && (

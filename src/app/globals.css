@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #0a0a0a;
+  --background: #252525;
   --foreground: #ededed;
   --card: #111113;
   --card-foreground: #ededed;
@@ -105,4 +105,9 @@ body {
   background: rgba(20, 20, 22, 0.72);
   backdrop-filter: saturate(180%) blur(28px);
   -webkit-backdrop-filter: saturate(180%) blur(28px);
+}
+
+.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib {
+  display: none !important;
 }

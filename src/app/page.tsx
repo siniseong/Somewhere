@@ -1,8 +1,10 @@
 import { MapView } from "@/components/map-view";
+import { SplashScreen } from "@/components/splash-screen";
 
 export default function Home() {
   return (
-    <main className="flex flex-1 flex-col">
+    <main className="relative flex flex-1 flex-col">
+      <SplashScreen />
       <MapView />
     </main>
   );
