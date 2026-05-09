@@ -13,15 +13,21 @@ export default function AppleIcon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background:
-            "radial-gradient(circle at 50% 35%, #f5e9d4 0%, #d9b48a 45%, #5b3a2e 100%)",
-          color: "#1a1208",
-          fontSize: 110,
-          fontWeight: 700,
-          letterSpacing: "-0.05em",
+          background: "#0F1218",
         }}
       >
-        S
+        <svg
+          width="180"
+          height="180"
+          viewBox="0 0 318 318"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M89 159.344L230 234.688L188.5 159.344L230 84L89 159.344Z"
+            fill="white"
+          />
+        </svg>
       </div>
     ),
     { ...size },
