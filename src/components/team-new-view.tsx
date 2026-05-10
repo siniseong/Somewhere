@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isLoggedInSync } from "@/lib/auth";
 import { addTeam, type Team } from "@/lib/teams";
 
 export function TeamNewView() {
@@ -15,17 +16,31 @@ export function TeamNewView() {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isLoggedInSync()) {
+      router.replace("/");
+    }
+  }, [router]);
+
+  useEffect(() => {
     if (step !== "name") return;
     const t = window.setTimeout(() => inputRef.current?.focus(), 200);
     return () => window.clearTimeout(t);
   }, [step]);
 
-  function handleCreate() {
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreate() {
     const trimmed = name.trim();
-    if (!trimmed) return;
-    const team = addTeam(trimmed);
-    setCreated(team);
-    setStep("code");
+    if (!trimmed || creating) return;
+    setCreating(true);
+    try {
+      const team = await addTeam(trimmed);
+      setCreated(team);
+      setStep("code");
+    } finally {
+      setCreating(false);
+    }
   }
 
   function handleCopy() {
@@ -145,11 +160,11 @@ export function TeamNewView() {
           <Button
             type="button"
             size="lg"
-            disabled={!name.trim()}
+            disabled={!name.trim() || creating}
             onClick={handleCreate}
             className="w-full"
           >
-            만들기
+            {creating ? "만드는 중…" : "만들기"}
           </Button>
         ) : (
           <Button

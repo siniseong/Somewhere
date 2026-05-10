@@ -15,7 +15,11 @@ export function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
   cachedClient = createClient(url, anonKey, {
-    auth: { persistSession: false },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
   });
   return cachedClient;
 }

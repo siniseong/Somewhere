@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,7 @@ import {
   MoreVertical,
   Plus,
   Trash2,
+  User,
 } from "lucide-react";
 import {
   Drawer,
@@ -22,9 +23,25 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { LoginSheet } from "./login-sheet";
+import { isLoggedInSync, signOut } from "@/lib/auth";
 import { COLORS } from "@/lib/colors";
-import { getAllMemories } from "@/lib/db";
-import { getTeams, removeTeam, updateTeamName, type Team } from "@/lib/teams";
+import { claimDeviceMemoriesForUser, getAllMemories } from "@/lib/db";
+import {
+  claimDeviceTeamsForUser,
+  getTeams,
+  removeTeam,
+  updateTeamName,
+  type Team,
+} from "@/lib/teams";
+import { getSupabaseClient } from "@/lib/supabase";
+import { setUserName } from "@/lib/user";
+import {
+  fetchWeatherAt,
+  getCachedWeather,
+  WEATHER_FALLBACK,
+  type Weather,
+} from "@/lib/weather";
 
 function hash(s: string): number {
   let h = 0;
@@ -45,23 +62,6 @@ function generatePins(seed: string, count: number) {
     x: `${rand() * 76 + 12}%`,
     y: `${rand() * 48 + 40}%`,
   }));
-}
-
-type Weather = { emoji: string; label: string };
-const WEATHER_FALLBACK: Weather = { emoji: "🌤️", label: "Mild" };
-
-function weatherFromCode(code: number): Weather {
-  if (code === 0) return { emoji: "☀️", label: "Sunny" };
-  if (code === 1) return { emoji: "🌤️", label: "Mostly Sunny" };
-  if (code === 2) return { emoji: "⛅", label: "Partly Cloudy" };
-  if (code === 3) return { emoji: "☁️", label: "Cloudy" };
-  if (code >= 45 && code <= 48) return { emoji: "🌫️", label: "Foggy" };
-  if (code >= 51 && code <= 57) return { emoji: "🌦️", label: "Drizzle" };
-  if (code >= 61 && code <= 67) return { emoji: "🌧️", label: "Rainy" };
-  if (code >= 71 && code <= 77) return { emoji: "🌨️", label: "Snowy" };
-  if (code >= 80 && code <= 86) return { emoji: "🌧️", label: "Showers" };
-  if (code >= 95) return { emoji: "⛈️", label: "Thunderstorm" };
-  return WEATHER_FALLBACK;
 }
 
 function formatDate() {
@@ -96,10 +96,44 @@ function ReportPlaceholder() {
 export function HomeView() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("map");
-  const [weather, setWeather] = useState<Weather>(WEATHER_FALLBACK);
+  const [weather, setWeather] = useState<Weather>(() => {
+    if (typeof window === "undefined") return WEATHER_FALLBACK;
+    return getCachedWeather() ?? WEATHER_FALLBACK;
+  });
   const [teams, setTeams] = useState<Team[]>([]);
   const [memoryCount, setMemoryCount] = useState(0);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [authed, setAuthed] = useState(() => isLoggedInSync());
+  const [profile, setProfile] = useState<{
+    name?: string;
+    avatar?: string;
+  } | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileWrapRef = useRef<HTMLDivElement | null>(null);
   const [actionTeamId, setActionTeamId] = useState<string | null>(null);
+
+  function gotoCreateTeam() {
+    if (!isLoggedInSync()) {
+      setLoginOpen(true);
+      return;
+    }
+    router.push("/team/new");
+  }
+
+  async function handleLogout() {
+    await signOut();
+    setProfileOpen(false);
+  }
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    function handler(e: MouseEvent) {
+      if (profileWrapRef.current?.contains(e.target as Node)) return;
+      setProfileOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [profileOpen]);
   const [actionStep, setActionStep] = useState<
     "menu" | "code" | "edit" | "delete"
   >("menu");
@@ -116,22 +150,24 @@ export function HomeView() {
     setCopied(false);
   }
 
-  function handleSaveName() {
+  async function handleSaveName() {
     if (!actionTeam) return;
     const next = editName.trim();
     if (!next || next === actionTeam.name) {
       setActionTeamId(null);
       return;
     }
-    updateTeamName(actionTeam.id, next);
-    setTeams(getTeams());
+    await updateTeamName(actionTeam.id, next);
+    const fresh = await getTeams();
+    setTeams(fresh);
     setActionTeamId(null);
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!actionTeam) return;
-    removeTeam(actionTeam.id);
-    setTeams(getTeams());
+    await removeTeam(actionTeam.id);
+    const fresh = await getTeams();
+    setTeams(fresh);
     setActionTeamId(null);
   }
 
@@ -144,12 +180,65 @@ export function HomeView() {
   }
 
   useEffect(() => {
+    let cancelled = false;
     function refresh() {
-      setTeams(getTeams());
+      getTeams()
+        .then((items) => {
+          if (!cancelled) setTeams(items);
+        })
+        .catch(() => {});
     }
     refresh();
     window.addEventListener("focus", refresh);
-    return () => window.removeEventListener("focus", refresh);
+
+    const supabase = getSupabaseClient();
+
+    function applyProfile(meta?: Record<string, unknown>) {
+      if (!meta) {
+        setProfile(null);
+        return;
+      }
+      const name =
+        (meta.name as string | undefined) ??
+        (meta.full_name as string | undefined) ??
+        (meta.nickname as string | undefined) ??
+        (meta.preferred_username as string | undefined);
+      const avatar =
+        (meta.avatar_url as string | undefined) ??
+        (meta.picture as string | undefined);
+      setProfile({ name, avatar });
+      if (name) setUserName(name);
+    }
+
+    supabase?.auth.getSession().then(({ data }) => {
+      applyProfile(
+        data.session?.user?.user_metadata as
+          | Record<string, unknown>
+          | undefined,
+      );
+    });
+
+    const sub = supabase?.auth.onAuthStateChange((event, session) => {
+      setAuthed(!!session);
+      if (event === "SIGNED_IN" && session?.user) {
+        applyProfile(
+          session.user.user_metadata as Record<string, unknown> | undefined,
+        );
+        Promise.all([
+          claimDeviceTeamsForUser(session.user.id),
+          claimDeviceMemoriesForUser(session.user.id),
+        ]).then(refresh);
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        refresh();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refresh);
+      sub?.data.subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -165,19 +254,14 @@ export function HomeView() {
   }, []);
 
   useEffect(() => {
+    if (getCachedWeather()) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     let cancelled = false;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const url = `https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`;
-        fetch(url)
-          .then((r) => r.json())
-          .then((data) => {
-            if (cancelled) return;
-            const code = data?.current_weather?.weathercode;
-            if (typeof code === "number") setWeather(weatherFromCode(code));
-          })
-          .catch(() => {});
+        fetchWeatherAt(pos.coords.latitude, pos.coords.longitude).then((w) => {
+          if (!cancelled && w) setWeather(w);
+        });
       },
       () => {},
       { enableHighAccuracy: false, timeout: 8000 },
@@ -208,14 +292,78 @@ export function HomeView() {
             somr
           </span>
         </div>
-        <button
-          type="button"
-          aria-label="팀 만들기"
-          onClick={() => router.push("/team/new")}
-          className="flex h-10 w-10 items-center justify-center active:scale-95"
-        >
-          <Plus className="h-6 w-6 text-white" strokeWidth={2.2} />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            aria-label="팀 만들기"
+            onClick={gotoCreateTeam}
+            className="flex h-10 w-10 items-center justify-center active:scale-95"
+          >
+            <Plus className="h-6 w-6 text-white" strokeWidth={2.2} />
+          </button>
+          {authed ? (
+            <div className="relative" ref={profileWrapRef}>
+              <button
+                type="button"
+                aria-label="내 프로필"
+                aria-expanded={profileOpen}
+                onClick={() => setProfileOpen((v) => !v)}
+                className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-white/10 ring-1 ring-white/15 active:scale-95"
+              >
+                {profile?.avatar ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    src={profile.avatar}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-[14px] font-semibold text-white">
+                    {profile?.name?.[0]?.toUpperCase() ?? "?"}
+                  </span>
+                )}
+              </button>
+              {profileOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-30 mt-2 w-44 origin-top-right overflow-hidden rounded-2xl bg-[#1C1C1E] py-1 shadow-[0_12px_40px_rgba(0,0,0,0.55)] ring-1 ring-white/10"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      router.push("/settings");
+                    }}
+                    className="block w-full px-4 py-3 text-left text-[14px] font-medium text-white active:bg-white/[0.05]"
+                  >
+                    닉네임 변경
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="block w-full px-4 py-3 text-left text-[14px] font-medium text-rose-400 active:bg-white/[0.05]"
+                  >
+                    로그아웃
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              aria-label="로그인"
+              onClick={() => setLoginOpen(true)}
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 ring-1 ring-white/15 active:scale-95"
+            >
+              <User
+                className="h-[18px] w-[18px] text-white/75"
+                strokeWidth={2}
+              />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="relative mt-2 grid grid-cols-2 pt-1">
@@ -289,6 +437,23 @@ export function HomeView() {
         <span className="h-px flex-1 bg-white/15" aria-hidden />
       </div>
 
+      {teams.length === 0 ? (
+        <button
+          type="button"
+          onClick={gotoCreateTeam}
+          className="flex min-h-[280px] flex-1 flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-white/15 bg-white/[0.02] px-4 text-center active:bg-white/[0.04]"
+        >
+          <Plus className="h-8 w-8 text-white/45" strokeWidth={2} />
+          <div>
+            <div className="text-[15px] font-medium text-white/85">
+              팀을 만들어볼까요?
+            </div>
+            <div className="mt-1 text-[13px] text-white/50">
+              친구와 함께 장소를 모아요
+            </div>
+          </div>
+        </button>
+      ) : (
       <div className="grid grid-cols-2 gap-3">
         {teams.map((t) => {
           const isKorean = /[ㄱ-힝]/.test(t.name);
@@ -340,6 +505,7 @@ export function HomeView() {
           );
         })}
       </div>
+      )}
       </>
       )}
 
@@ -527,6 +693,8 @@ export function HomeView() {
           )}
         </DrawerContent>
       </Drawer>
+
+      <LoginSheet open={loginOpen} onOpenChange={setLoginOpen} />
     </div>
   );
 }

@@ -1,23 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronLeft } from "lucide-react";
 import Map, {
+  GeolocateControl,
   Marker,
   type MapMouseEvent,
   type MapRef,
 } from "react-map-gl/mapbox";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { isLoggedInSync } from "@/lib/auth";
 import { getAllMemories } from "@/lib/db";
 import { reverseGeocode } from "@/lib/geocode";
+import { getUserName } from "@/lib/user";
 import type { Memory } from "@/lib/types";
 import { LocationSearch, type LocationSuggestion } from "./location-search";
 import { LocationConfirmSheet } from "./location-confirm-sheet";
 import { MemoryDetailDrawer } from "./memory-detail-drawer";
 
 const FALLBACK_VIEW = {
-  longitude: 126.978,
-  latitude: 37.5665,
-  zoom: 12,
+  longitude: 127.8,
+  latitude: 36.3,
+  zoom: 6.5,
 };
 
 type DraftPin = {
@@ -27,10 +32,17 @@ type DraftPin = {
   address?: string;
 };
 
-export function MapView() {
+type Props = {
+  title?: string;
+};
+
+export function MapView({ title }: Props = {}) {
+  const router = useRouter();
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   const mapRef = useRef<MapRef | null>(null);
   const [memories, setMemories] = useState<Memory[]>([]);
+  const [userName] = useState(() => getUserName());
+  const headerTitle = title ?? `${userName}의 지도`;
   const [proximity, setProximity] = useState<{
     lng: number;
     lat: number;
@@ -39,6 +51,12 @@ export function MapView() {
   const [recordOpen, setRecordOpen] = useState(false);
   const [selected, setSelected] = useState<Memory | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !isLoggedInSync()) {
+      router.replace("/");
+    }
+  }, [router]);
 
   useEffect(() => {
     let canceled = false;
@@ -99,9 +117,10 @@ export function MapView() {
     setDetailOpen(true);
     const map = mapRef.current?.getMap();
     if (map) {
-      map.easeTo({
+      map.flyTo({
         center: [memory.lng, memory.lat],
-        duration: 500,
+        zoom: 16,
+        duration: 800,
         padding: { bottom: 320 },
       });
     }
@@ -137,19 +156,6 @@ export function MapView() {
         onLoad={(e) => {
           const c = e.target.getCenter();
           setProximity({ lng: c.lng, lat: c.lat });
-          if (typeof navigator !== "undefined" && navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-              (pos) => {
-                mapRef.current?.getMap().flyTo({
-                  center: [pos.coords.longitude, pos.coords.latitude],
-                  zoom: 15,
-                  duration: 1000,
-                });
-              },
-              () => {},
-              { enableHighAccuracy: true, timeout: 8000 },
-            );
-          }
         }}
         onMoveEnd={(e) => {
           const c = e.target.getCenter();
@@ -158,6 +164,14 @@ export function MapView() {
         onDblClick={handleDoubleClick}
         style={{ width: "100%", height: "100%" }}
       >
+        <GeolocateControl
+          position="bottom-right"
+          positionOptions={{ enableHighAccuracy: true, timeout: 8000 }}
+          trackUserLocation
+          showUserHeading
+          fitBoundsOptions={{ maxZoom: 17 }}
+        />
+
         {memories.map((m) => (
           <Marker
             key={m.id}
@@ -246,14 +260,33 @@ export function MapView() {
       </Map>
 
       <div
-        className="absolute inset-x-4 z-10"
+        className="absolute inset-x-0 z-10 px-4"
         style={{ top: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
       >
-        <LocationSearch
-          onSelect={handleSearchSelect}
-          proximityLng={proximity?.lng}
-          proximityLat={proximity?.lat}
-        />
+        <div className="flex h-10 items-center justify-between">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="뒤로"
+            className="-ml-2 flex h-10 w-10 items-center justify-center active:scale-95"
+          >
+            <ChevronLeft className="h-7 w-7 text-white" strokeWidth={2.5} />
+          </button>
+          <span
+            className="text-[15px] font-medium text-white"
+            suppressHydrationWarning
+          >
+            {headerTitle}
+          </span>
+          <div className="w-10" />
+        </div>
+        <div className="mt-2">
+          <LocationSearch
+            onSelect={handleSearchSelect}
+            proximityLng={proximity?.lng}
+            proximityLat={proximity?.lat}
+          />
+        </div>
       </div>
 
       {!recordOpen && !detailOpen && (

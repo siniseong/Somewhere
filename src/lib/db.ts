@@ -1,6 +1,8 @@
 import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+import { getCurrentUser } from "./auth";
 import { getSupabaseClient, PHOTO_BUCKET } from "./supabase";
 import type { Memory, PhotoRecord } from "./types";
+import { getDeviceId } from "./user";
 
 interface SomewhereDB extends DBSchema {
   memories: {
@@ -48,6 +50,8 @@ type MemoryRow = {
   photo_thumb: string | null;
   music_artist: string | null;
   music_title: string | null;
+  owner_user_id?: string | null;
+  owner_device_id?: string | null;
   created_at: string;
 };
 
@@ -71,7 +75,8 @@ function rowToMemory(row: MemoryRow): Memory {
   };
 }
 
-function memoryToRow(memory: Memory): MemoryRow {
+async function memoryToRow(memory: Memory): Promise<MemoryRow> {
+  const user = await getCurrentUser();
   return {
     id: memory.id,
     lat: memory.lat,
@@ -84,6 +89,8 @@ function memoryToRow(memory: Memory): MemoryRow {
     photo_thumb: memory.photoThumb ?? null,
     music_artist: memory.music?.artist ?? null,
     music_title: memory.music?.title ?? null,
+    owner_user_id: user?.id ?? null,
+    owner_device_id: typeof window !== "undefined" ? getDeviceId() : null,
     created_at: new Date(memory.createdAt).toISOString(),
   };
 }
@@ -91,10 +98,15 @@ function memoryToRow(memory: Memory): MemoryRow {
 export async function getAllMemories(): Promise<Memory[]> {
   const supabase = getSupabaseClient();
   if (supabase) {
-    const { data, error } = await supabase
+    const user = await getCurrentUser();
+    let query = supabase
       .from("memories")
       .select("*")
       .order("created_at", { ascending: false });
+    query = user
+      ? query.eq("owner_user_id", user.id)
+      : query.is("owner_user_id", null).eq("owner_device_id", getDeviceId());
+    const { data, error } = await query;
     if (error) {
       console.warn("Supabase select failed — falling back to IDB", error);
     } else {
@@ -109,14 +121,27 @@ export async function getAllMemories(): Promise<Memory[]> {
 export async function saveMemory(memory: Memory): Promise<void> {
   const supabase = getSupabaseClient();
   if (supabase) {
-    const { error } = await supabase
-      .from("memories")
-      .upsert(memoryToRow(memory));
+    const row = await memoryToRow(memory);
+    const { error } = await supabase.from("memories").upsert(row);
     if (!error) return;
     console.warn("Supabase insert failed — falling back to IDB", error);
   }
   const db = await getDB();
   await db.put("memories", memory);
+}
+
+/**
+ * Claim memories previously created anonymously on this device for the now-logged-in user.
+ */
+export async function claimDeviceMemoriesForUser(userId: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("memories")
+    .update({ owner_user_id: userId })
+    .is("owner_user_id", null)
+    .eq("owner_device_id", getDeviceId());
+  if (error) console.warn("memories claim failed", error);
 }
 
 export async function deleteMemory(id: string): Promise<void> {
