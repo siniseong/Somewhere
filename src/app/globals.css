@@ -102,9 +102,9 @@ body {
 }
 
 .glass-panel {
-  background: rgba(20, 20, 22, 0.72);
-  backdrop-filter: saturate(180%) blur(28px);
-  -webkit-backdrop-filter: saturate(180%) blur(28px);
+  background: rgba(28, 28, 30, 0.95);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 .mapboxgl-ctrl-logo,

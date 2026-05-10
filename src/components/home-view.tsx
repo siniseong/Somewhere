@@ -2,16 +2,28 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BarChart3, Map, Plus } from "lucide-react";
-import { MapPreview } from "./map-preview";
+import { useRouter } from "next/navigation";
+import {
+  BarChart3,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  Map,
+  MoreVertical,
+  Plus,
+} from "lucide-react";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
 import { COLORS } from "@/lib/colors";
-
-const MOCK_TEAMS = [
-  { id: "1", name: "여행 추억", members: 3, places: 12, pinCount: 5 },
-  { id: "2", name: "주말 맛집", members: 2, places: 5, pinCount: 3 },
-  { id: "3", name: "Date Course", members: 4, places: 18, pinCount: 5 },
-  { id: "4", name: "산책길", members: 2, places: 7, pinCount: 4 },
-];
+import { getAllMemories } from "@/lib/db";
+import { getTeams, updateTeamName, type Team } from "@/lib/teams";
 
 function hash(s: string): number {
   let h = 0;
@@ -81,8 +93,68 @@ function ReportPlaceholder() {
 }
 
 export function HomeView() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("map");
   const [weather, setWeather] = useState<Weather>(WEATHER_FALLBACK);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [memoryCount, setMemoryCount] = useState(0);
+  const [actionTeamId, setActionTeamId] = useState<string | null>(null);
+  const [actionStep, setActionStep] = useState<"menu" | "code" | "edit">(
+    "menu",
+  );
+  const [editName, setEditName] = useState("");
+  const [copied, setCopied] = useState(false);
+  const actionTeam = actionTeamId
+    ? teams.find((t) => t.id === actionTeamId) ?? null
+    : null;
+
+  function openTeamMenu(team: Team) {
+    setActionTeamId(team.id);
+    setActionStep("menu");
+    setEditName(team.name);
+    setCopied(false);
+  }
+
+  function handleSaveName() {
+    if (!actionTeam) return;
+    const next = editName.trim();
+    if (!next || next === actionTeam.name) {
+      setActionTeamId(null);
+      return;
+    }
+    updateTeamName(actionTeam.id, next);
+    setTeams(getTeams());
+    setActionTeamId(null);
+  }
+
+  function handleCopyCode(code: string) {
+    if (typeof navigator === "undefined" || !navigator.clipboard) return;
+    navigator.clipboard.writeText(code).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  useEffect(() => {
+    function refresh() {
+      setTeams(getTeams());
+    }
+    refresh();
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAllMemories()
+      .then((items) => {
+        if (!cancelled) setMemoryCount(items.length);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
@@ -130,7 +202,8 @@ export function HomeView() {
         </div>
         <button
           type="button"
-          aria-label="그룹 만들기"
+          aria-label="팀 만들기"
+          onClick={() => router.push("/team/new")}
           className="flex h-10 w-10 items-center justify-center active:scale-95"
         >
           <Plus className="h-6 w-6 text-white" strokeWidth={2.2} />
@@ -188,17 +261,19 @@ export function HomeView() {
 
       <Link
         href="/map"
-        className="relative block aspect-[5/3] overflow-hidden rounded-3xl bg-[#1C1C1E]"
+        className="mt-2 flex items-center justify-between rounded-2xl bg-white/[0.04] px-4 py-3.5 ring-1 ring-white/[0.06] active:bg-white/[0.06]"
       >
-        <MapPreview />
-        <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/55 to-transparent p-5">
-          <div className="text-[28px] font-medium tracking-tight text-white">
-            Me
-          </div>
+        <div className="flex items-center gap-2">
+          <Map className="h-4 w-4 text-white/70" strokeWidth={2.2} />
+          <span className="text-[14px] text-white/70">내 지도</span>
+          <span className="text-[14px] font-semibold text-white">
+            {memoryCount}곳
+          </span>
         </div>
+        <ChevronRight className="h-4 w-4 text-white/40" strokeWidth={2.2} />
       </Link>
 
-      <div className="flex items-center gap-3 py-1">
+      <div className="flex items-center gap-3 pt-2">
         <span className="h-px flex-1 bg-white/15" aria-hidden />
         <span className="text-[14px] font-medium tracking-tight text-white/70">
           Teams
@@ -207,14 +282,13 @@ export function HomeView() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        {MOCK_TEAMS.map((t) => {
+        {teams.map((t) => {
           const isKorean = /[ㄱ-힝]/.test(t.name);
           const pins = generatePins(t.id, t.pinCount);
           return (
-            <button
+            <div
               key={t.id}
-              type="button"
-              className="relative block aspect-square overflow-hidden rounded-3xl bg-[#1C1C1E] active:scale-[0.98]"
+              className="relative aspect-square overflow-hidden rounded-3xl bg-[#1C1C1E]"
             >
               {pins.map((pin, i) => (
                 <span
@@ -232,8 +306,16 @@ export function HomeView() {
                 />
               ))}
               <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/55 to-transparent p-4 text-left">
+                <button
+                  type="button"
+                  aria-label="팀 메뉴"
+                  onClick={() => openTeamMenu(t)}
+                  className="float-right -mr-2 -mt-1 flex h-9 w-9 items-center justify-center rounded-full text-white/75 active:bg-white/10"
+                >
+                  <MoreVertical className="h-4 w-4" strokeWidth={2.2} />
+                </button>
                 <div
-                  className="text-[18px] font-medium tracking-tight text-white"
+                  className="text-[18px] font-medium leading-tight tracking-tight text-white [overflow-wrap:anywhere]"
                   style={
                     isKorean
                       ? { fontFamily: "var(--font-korean)" }
@@ -242,16 +324,160 @@ export function HomeView() {
                 >
                   {t.name}
                 </div>
-                <div className="mt-0.5 text-[11px] text-white/65">
+                <div className="clear-both mt-1 text-[11px] text-white/65">
                   {t.members}명 · {t.places}곳
                 </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
       </>
       )}
+
+      <Drawer
+        open={actionTeam !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActionTeamId(null);
+            setCopied(false);
+          }
+        }}
+      >
+        <DrawerContent>
+          <DrawerHeader className="flex flex-row items-center gap-1 pt-5">
+            <DrawerTitle className="sr-only">
+              {actionTeam?.name}
+            </DrawerTitle>
+            {actionStep !== "menu" ? (
+              <button
+                type="button"
+                onClick={() => setActionStep("menu")}
+                aria-label="뒤로"
+                className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white/85 active:bg-white/10"
+              >
+                <ChevronLeft className="h-7 w-7" strokeWidth={2.5} />
+              </button>
+            ) : null}
+            <DrawerDescription className="text-[15px] font-medium text-white">
+              {actionStep === "menu"
+                ? actionTeam?.name
+                : actionStep === "code"
+                  ? "초대 코드"
+                  : "팀 이름 수정"}
+            </DrawerDescription>
+          </DrawerHeader>
+
+          {actionStep === "menu" && (
+            <div className="flex flex-col px-2 pb-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setActionStep("code")}
+                className="flex items-center justify-between rounded-2xl px-4 py-4 text-left active:bg-white/[0.05]"
+              >
+                <span className="text-[15px] font-medium text-white">
+                  초대 코드
+                </span>
+                <ChevronRight
+                  className="h-4 w-4 text-white/40"
+                  strokeWidth={2.2}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => setActionStep("edit")}
+                className="flex items-center justify-between rounded-2xl px-4 py-4 text-left active:bg-white/[0.05]"
+              >
+                <span className="text-[15px] font-medium text-white">
+                  팀 이름 수정
+                </span>
+                <ChevronRight
+                  className="h-4 w-4 text-white/40"
+                  strokeWidth={2.2}
+                />
+              </button>
+            </div>
+          )}
+
+          {actionStep === "code" && (
+            <>
+              <div className="flex items-center gap-2 px-5 pt-3">
+                <div className="flex gap-1.5">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="flex h-12 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] text-[20px] font-bold text-white"
+                    >
+                      {actionTeam?.code[i] ?? ""}
+                    </div>
+                  ))}
+                </div>
+                <span className="block h-px w-3 bg-white/30" aria-hidden />
+                <div className="flex gap-1.5">
+                  {[3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="flex h-12 w-10 items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] text-[20px] font-bold text-white"
+                    >
+                      {actionTeam?.code[i] ?? ""}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 px-5 pb-2 pt-5">
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="secondary"
+                  onClick={() =>
+                    actionTeam && handleCopyCode(actionTeam.code)
+                  }
+                >
+                  {copied ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      복사됨
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      초대 코드 복사
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {actionStep === "edit" && (
+            <>
+              <div className="px-5 pt-3">
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveName();
+                  }}
+                  maxLength={20}
+                  autoFocus
+                  className="w-full bg-transparent text-[24px] font-medium tracking-tight text-white outline-none placeholder:text-white/25"
+                />
+              </div>
+              <div className="flex flex-col gap-2 px-5 pb-2 pt-5">
+                <Button
+                  type="button"
+                  size="lg"
+                  disabled={!editName.trim()}
+                  onClick={handleSaveName}
+                >
+                  저장
+                </Button>
+              </div>
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
