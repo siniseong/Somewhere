@@ -17,14 +17,14 @@ export default function AppleIcon() {
         }}
       >
         <svg
-          width="180"
-          height="180"
-          viewBox="0 0 318 318"
+          width="140"
+          height="140"
+          viewBox="0 0 166 162"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
           <path
-            d="M89 159.344L230 234.688L188.5 159.344L230 84L89 159.344Z"
+            d="M84 0L113.5 55.5L166 38L128.286 89.3731L146 140L96.5 113.422L62 161.5L64.7137 89.3731L0 63.5L76.855 50.461L84 0Z"
             fill="white"
           />
         </svg>

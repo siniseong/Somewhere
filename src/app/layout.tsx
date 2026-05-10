@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/sw-register";
 import { Providers } from "./providers";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const sourceSerif = Source_Serif_4({
+  variable: "--font-source-serif",
   subsets: ["latin"],
 });
 
@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const APP_NAME = "Somewhere";
+const APP_NAME = "somr";
 const APP_DESCRIPTION = "Places remember how you felt.";
 
 export const metadata: Metadata = {
@@ -60,7 +60,7 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${geistSans.variable} ${geistMono.variable} dark h-full bg-[#f3f4f6] antialiased`}
+      className={`${sourceSerif.variable} ${geistMono.variable} dark h-full bg-[#f3f4f6] antialiased`}
     >
       <body className="min-h-dvh bg-[#f3f4f6] text-zinc-100">
         <Providers>

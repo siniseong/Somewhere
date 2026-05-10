@@ -128,7 +128,7 @@ export function RecordFlow() {
         createdAt: Date.now(),
       };
       await saveMemory(memory);
-      router.replace("/?saved=1");
+      router.replace("/map?saved=1");
     } catch (err) {
       console.error("save failed", err);
       setSaving(false);
