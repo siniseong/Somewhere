@@ -74,7 +74,7 @@ export function PhotoStep({ preview, onPick }: Props) {
         </div>
       )}
 
-      <div className="mt-4 flex-1">
+      <div className="mt-5 flex-1">
         {preview ? (
           <div className="relative h-full w-full overflow-hidden rounded-3xl ring-1 ring-white/[0.08]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -87,28 +87,44 @@ export function PhotoStep({ preview, onPick }: Props) {
               type="button"
               onClick={() => onPick(null)}
               aria-label="사진 제거"
-              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
+              className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-md ring-1 ring-white/10 active:scale-95"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4" strokeWidth={2.4} />
             </button>
           </div>
-        ) : mode === "camera" ? (
-          <button
-            type="button"
-            onClick={() => setCameraOpen(true)}
-            className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl bg-white/[0.04] ring-1 ring-white/[0.08] transition active:bg-white/[0.08]"
-          >
-            <Camera className="h-9 w-9 text-white/80" />
-            <span className="text-[15px] text-white/80">탭해서 촬영</span>
-          </button>
         ) : (
           <button
             type="button"
-            onClick={() => galleryInputRef.current?.click()}
-            className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-3xl bg-white/[0.04] ring-1 ring-white/[0.08] transition active:bg-white/[0.08]"
+            onClick={
+              mode === "camera"
+                ? () => setCameraOpen(true)
+                : () => galleryInputRef.current?.click()
+            }
+            className="group flex h-full w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-3xl bg-gradient-to-b from-white/[0.06] to-white/[0.02] ring-1 ring-white/[0.08] transition active:scale-[0.99]"
           >
-            <ImagePlus className="h-9 w-9 text-white/80" />
-            <span className="text-[15px] text-white/80">갤러리에서 선택</span>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/[0.08] ring-1 ring-white/10 transition group-active:scale-95">
+              {mode === "camera" ? (
+                <Camera
+                  className="h-7 w-7 text-white/85"
+                  strokeWidth={1.8}
+                />
+              ) : (
+                <ImagePlus
+                  className="h-7 w-7 text-white/85"
+                  strokeWidth={1.8}
+                />
+              )}
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <span className="text-[16px] font-medium tracking-tight text-white">
+                {mode === "camera" ? "탭해서 촬영" : "갤러리에서 선택"}
+              </span>
+              <span className="text-[12.5px] text-white/45">
+                {mode === "camera"
+                  ? "지금 이 순간을 카메라로"
+                  : "이미 담아둔 한 컷을 불러와요"}
+              </span>
+            </div>
           </button>
         )}
       </div>

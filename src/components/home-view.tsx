@@ -95,15 +95,13 @@ function ReportPlaceholder() {
 
 export function HomeView() {
   const router = useRouter();
+  const [hydrated, setHydrated] = useState(false);
   const [tab, setTab] = useState<Tab>("map");
-  const [weather, setWeather] = useState<Weather>(() => {
-    if (typeof window === "undefined") return WEATHER_FALLBACK;
-    return getCachedWeather() ?? WEATHER_FALLBACK;
-  });
+  const [weather, setWeather] = useState<Weather>(WEATHER_FALLBACK);
   const [teams, setTeams] = useState<Team[]>([]);
   const [memoryCount, setMemoryCount] = useState(0);
   const [loginOpen, setLoginOpen] = useState(false);
-  const [authed, setAuthed] = useState(() => isLoggedInSync());
+  const [authed, setAuthed] = useState(false);
   const [profile, setProfile] = useState<{
     name?: string;
     avatar?: string;
@@ -124,6 +122,16 @@ export function HomeView() {
     await signOut();
     setProfileOpen(false);
   }
+
+  useEffect(() => {
+    // Read client-only sources after hydration to avoid SSR/CSR mismatch.
+    /* eslint-disable react-hooks/set-state-in-effect */
+    setAuthed(isLoggedInSync());
+    const cachedWeather = getCachedWeather();
+    if (cachedWeather) setWeather(cachedWeather);
+    setHydrated(true);
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, []);
 
   useEffect(() => {
     if (!profileOpen) return;
@@ -270,6 +278,10 @@ export function HomeView() {
       cancelled = true;
     };
   }, []);
+
+  if (!hydrated) {
+    return <div className="flex flex-1 flex-col bg-[#141414]" />;
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-4 px-5 pt-[max(env(safe-area-inset-top,0px),20px)] pb-[max(env(safe-area-inset-bottom,0px),20px)]">
