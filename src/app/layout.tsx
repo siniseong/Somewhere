@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/sw-register";
-import { Providers } from "./providers";
 
 const sourceSerif = Source_Serif_4({
   variable: "--font-source-serif",
@@ -63,11 +62,9 @@ export default function RootLayout({
       className={`${sourceSerif.variable} ${geistMono.variable} dark h-full bg-[#f3f4f6] antialiased`}
     >
       <body className="min-h-dvh bg-[#f3f4f6] text-zinc-100">
-        <Providers>
-          <div className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col bg-[var(--background)]">
-            {children}
-          </div>
-        </Providers>
+        <div className="mx-auto flex min-h-dvh w-full max-w-[440px] flex-col bg-[var(--background)]">
+          {children}
+        </div>
         <ServiceWorkerRegister />
       </body>
     </html>

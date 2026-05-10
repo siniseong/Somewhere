@@ -12,6 +12,7 @@ import {
   Map,
   MoreVertical,
   Plus,
+  Trash2,
 } from "lucide-react";
 import {
   Drawer,
@@ -23,7 +24,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { COLORS } from "@/lib/colors";
 import { getAllMemories } from "@/lib/db";
-import { getTeams, updateTeamName, type Team } from "@/lib/teams";
+import { getTeams, removeTeam, updateTeamName, type Team } from "@/lib/teams";
 
 function hash(s: string): number {
   let h = 0;
@@ -99,9 +100,9 @@ export function HomeView() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [memoryCount, setMemoryCount] = useState(0);
   const [actionTeamId, setActionTeamId] = useState<string | null>(null);
-  const [actionStep, setActionStep] = useState<"menu" | "code" | "edit">(
-    "menu",
-  );
+  const [actionStep, setActionStep] = useState<
+    "menu" | "code" | "edit" | "delete"
+  >("menu");
   const [editName, setEditName] = useState("");
   const [copied, setCopied] = useState(false);
   const actionTeam = actionTeamId
@@ -123,6 +124,13 @@ export function HomeView() {
       return;
     }
     updateTeamName(actionTeam.id, next);
+    setTeams(getTeams());
+    setActionTeamId(null);
+  }
+
+  function handleDelete() {
+    if (!actionTeam) return;
+    removeTeam(actionTeam.id);
     setTeams(getTeams());
     setActionTeamId(null);
   }
@@ -364,7 +372,9 @@ export function HomeView() {
                 ? actionTeam?.name
                 : actionStep === "code"
                   ? "초대 코드"
-                  : "팀 이름 수정"}
+                  : actionStep === "edit"
+                    ? "팀 이름 수정"
+                    : "팀 삭제"}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -396,7 +406,46 @@ export function HomeView() {
                   strokeWidth={2.2}
                 />
               </button>
+              <button
+                type="button"
+                onClick={() => setActionStep("delete")}
+                className="flex items-center justify-between rounded-2xl px-4 py-4 text-left active:bg-white/[0.05]"
+              >
+                <span className="text-[15px] font-medium text-rose-400">
+                  팀 삭제
+                </span>
+                <ChevronRight
+                  className="h-4 w-4 text-rose-400/50"
+                  strokeWidth={2.2}
+                />
+              </button>
             </div>
+          )}
+
+          {actionStep === "delete" && (
+            <>
+              <div className="px-5 pt-3">
+                <p className="text-[15px] leading-relaxed text-white/75">
+                  <span className="font-semibold text-white">
+                    {actionTeam?.name}
+                  </span>{" "}
+                  팀을 정말 삭제할까요?
+                </p>
+                <p className="mt-2 text-[13px] text-white/45">
+                  팀에 저장된 모든 기록이 사라지고 되돌릴 수 없어요.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 px-5 pb-2 pt-5">
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="destructive"
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="h-4 w-4" />팀 삭제
+                </Button>
+              </div>
+            </>
           )}
 
           {actionStep === "code" && (

@@ -64,6 +64,11 @@ export function getTeams(): Team[] {
   }
 }
 
+export function removeTeam(id: string): void {
+  const teams = getTeams().filter((t) => t.id !== id);
+  window.localStorage.setItem(KEY, JSON.stringify(teams));
+}
+
 export function updateTeamName(id: string, name: string): void {
   const teams = getTeams();
   const idx = teams.findIndex((t) => t.id === id);
